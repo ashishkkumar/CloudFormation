@@ -1,0 +1,122 @@
+Resources:
+  version:
+    Type: AWS::Lambda::Version
+    Properties:
+      FunctionName: !Ref function
+      Description: v1
+
+  alias:
+    Type: AWS::Lambda::Alias
+    Properties: 
+      Description: "description"
+      FunctionName: !Ref function
+      FunctionVersion: !GetAtt version.Version
+      Name: "Alias demo"
+      ProvisionedConcurrencyConfig: 
+          ProvisionedConcurrentExecutions: 20 #The amount of provisioned concurrency to allocate for the alias.
+#      RoutingConfig:     #set up if we want to route traffic between other version
+#          AdditionalVersionWeights: 
+#              FunctionVersion: !GetAtt SecondVersion_name    #routing traffic between two version
+#              FunctionWeight: 0.5   #percentage of traffic we want to route
+ 
+
+#Below code is to allow other user to publish
+  CodeSigningConfig:
+    Type: AWS::Lambda::CodeSigningConfig
+      Properties: 
+        AllowedPublishers: 
+            SigningProfileVersionArns: 
+              - String    #arn of other users
+        CodeSigningPolicies: 
+            UntrustedArtifactOnDeployment: Enforce   #To blocks the deployment request if signature validation checks fail, else 'Warn' even you want to deploy after validation check failed
+        Description: String
+
+#resource configures options for asynchronous invocation on a version or an alias.
+  EventInvokeConfig:
+    Type: AWS::Lambda::EventInvokeConfig
+    Properties: 
+#      DestinationConfig: 
+#          OnFailure: 
+#            Destination:    #arn of destination resources
+#          OnSuccess: 
+#            Destination:    #arn of destination resources
+
+      FunctionName: Event_Invoke_name
+#      MaximumEventAgeInSeconds: 80   #60-21600
+#      MaximumRetryAttempts: 1    #0-2
+      Qualifier: !GetAtt version.Version   #identifier of a versiob or alias, 
+
+  function:
+    Type: AWS::Lambda::Function
+    Properties: 
+#      Architectures: 
+#        - x86_64
+      Code:   #use either imageurl, s3, zipfile 
+#        ImageUri:       #
+#        S3Bucket: String
+#        S3Key: String
+#        S3ObjectVersion: String
+        ZipFile: |
+          var aws = require('aws-sdk')
+          var response = require('cfn-response')
+          exports.handler = function(event, context) {
+              console.log("REQUEST RECEIVED:\n" + JSON.stringify(event))
+              // For Delete requests, immediately send a SUCCESS response.
+              if (event.RequestType == "Delete") {
+                  response.send(event, context, "SUCCESS")
+                  return
+              }
+              var responseStatus = "FAILED"
+              var responseData = {}
+              var functionName = event.ResourceProperties.FunctionName
+              var lambda = new aws.Lambda()
+              lambda.invoke({ FunctionName: functionName }, function(err, invokeResult) {
+                  if (err) {
+                      responseData = {Error: "Invoke call failed"}
+                      console.log(responseData.Error + ":\n", err)
+                  }
+                  else responseStatus = "SUCCESS"
+                  response.send(event, context, responseStatus, responseData)
+              })
+          }
+#      CodeSigningConfigArn: !GetAtt CodeSigningConfig.CodeSigningConfigArn
+      Description: String
+#      Environment:  #defininf variable that will be use by our code
+#        Variables:
+#          var_name: var_value
+#      EphemeralStorage: #tmp directory size
+#        Size: 1000    #512-10240mb
+#      FileSystemConfigs: 
+#          Arn: String
+#          LocalMountPath: String
+      FunctionName: lambda_demo_fns
+      Handler: function
+#      KmsKeyArn: String
+      MemorySize: 512
+      PackageType: Zip   #either Image or Zip
+      ReservedConcurrentExecutions: 2
+      Role: arn:aws:iam::479759072139:role/lambda_demo_role
+      Runtime: nodejs12.x
+      SnapStart: 
+        ApplyOn: PublishedVersions
+      Timeout: 10   #3-900 second
+      TracingConfig: 
+        Mode: Active  #Active | PassThrough
+      VpcConfig: 
+        SecurityGroupIds:
+          - sg-0937d317e793c3559
+        SubnetIds:
+          - subnet-0bdc7362dc14f5bd5
+
+  LambdaLayerVersion:
+    Type: AWS::Lambda::LayerVersion
+    Properties: 
+      CompatibleArchitectures: 
+        - x86_64
+      CompatibleRuntimes: 
+        - nodejs10.x
+      Content: 
+        Content
+      Description: String
+      LayerName: String
+      LicenseInfo: String

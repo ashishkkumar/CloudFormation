@@ -1,0 +1,125 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  Bundle:
+    Description: The identifier of the bundle for the WorkSpace. It is unique ID of bundle (Operating system). To get bundle- https://ap-southeast-1.console.aws.amazon.com/workspaces/v2/bundles
+    Type: String
+    AllowedPattern: ^wsb-[0-9a-z]{8,63}$
+
+  Directory:
+    Description: The identifier of the AWS Directory Service directory for the WorkSpace.
+    Type: String
+    MinLength: 10
+    MaxLength: 65
+    AllowedPattern: ^d-[0-9a-f]{8,63}$
+  
+  VolumeEncryption:
+    Description: Indicates whether the data stored on the root volume is encrypted.
+    Type: String
+    AllowedValues:
+      - "True"
+      - "False"
+  
+  User:
+    Description: The user name of the user for the WorkSpace. This user name must exist in the AWS Directory Service directory for the WorkSpace.
+    Type: String
+  
+  UserEncryption:
+    Description: Indicates whether the data stored on the user volume is encrypted.
+    Type: String
+    AllowedValues:
+      - "True"
+      - "False"
+
+  VolumeEncryptionKey:
+    Description: The symmetric AWS KMS key used to encrypt data stored on your WorkSpace. Amazon WorkSpaces does not support asymmetric KMS keys.
+    Type: String
+
+  ComputeTypeName:
+    Description: The compute type. For more information, see http://aws.amazon.com/workspaces/details/#Amazon_WorkSpaces_Bundles.
+    Type: String
+    AllowedValues:
+    - GRAPHICS
+    - GRAPHICS_G4DN
+    - GRAPHICSPRO
+    - GRAPHICSPRO_G4DN
+    - PERFORMANCE
+    - POWER
+    - POWERPRO 
+    - STANDARD 
+    - VALUE
+
+  RootVolumeSizeGib:
+    Description: The size of the root volume. For important information about how to modify the size of the root and user volumes, see https://docs.aws.amazon.com/workspaces/latest/adminguide/modify-workspaces.html .
+    Type: Number
+
+  RunningMode:
+    Description: The running mode. For more information, see https://docs.aws.amazon.com/workspaces/latest/adminguide/running-mode.html .
+    Type: String
+    AllowedValues:
+      - ALWAYS_ON
+      - AUTO_STOP
+      - MANUAL
+
+  RunningModeAutoStopTimeoutInMinutes:
+    Description: The time after a user logs off when WorkSpaces are automatically stopped. Configured in 60-minute intervals.
+    Type: Number
+  
+  UserVolumeSizeGib:
+    Description: The size of the user storage. For important information about how to modify the size of the root and user volumes, see https://docs.aws.amazon.com/workspaces/latest/adminguide/modify-workspaces.html .
+    Type: Number
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "Bundle Id"
+        Parameters:
+          - Bundle
+      - Label:
+          default: "Directory ID"
+        Parameters:
+          - Directory
+      - Label: 
+          default: "Volume Encryption"
+        Parameters:
+          - VolumeEncryption
+      - Label:
+          default: "User Encryption"
+        Parameters:
+          - UserEncryption
+      - Label:
+          default: "Volume Encryption Key"
+        Parameters:
+          - VolumeEncryptionKey
+      - Label:
+          default: "WorkSpace Properties"
+        Parameters:
+          - User
+          - ComputerTypeName
+          - RootVolumeSizeGib
+          - RunningMode
+          - RunningModeAutoStopTimeoutInMinutes
+          - UserVolumeSizeGib
+
+Conditions:
+  cond: !Equals
+    - "True"
+    - !Ref VolumeEncryption
+
+Resources:
+  Workspace:
+    Type: AWS::WorkSpaces::Workspace
+    Properties: 
+      BundleId: !Ref Bundle
+      DirectoryId: !Ref Directory
+      RootVolumeEncryptionEnabled: !Ref VolumeEncryption
+      UserName: !Ref User
+      UserVolumeEncryptionEnabled: !Ref UserEncryption
+      VolumeEncryptionKey: !If [cond, !Ref VolumeEncryptionKey, !Ref 'AWS::NoValue']
+      WorkspaceProperties: 
+        ComputeTypeName: !Ref ComputeTypeName
+        RootVolumeSizeGib: !Ref RootVolumeSizeGib
+        RunningMode: !Ref RunningMode
+        RunningModeAutoStopTimeoutInMinutes: !Ref RunningModeAutoStopTimeoutInMinutes
+        UserVolumeSizeGib: !Ref UserVolumeSizeGib
+

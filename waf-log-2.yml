@@ -1,0 +1,23 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates an S3 bucket 
+Resources:
+  Waflogging:
+    Type: AWS::WAFv2::LoggingConfiguration
+    Properties: 
+        LogDestinationConfigs:
+        - arn:aws:s3:::aws-waf-logs-ansh
+        #LoggingFilter: Json
+  #      RedactedFields:
+        #- JsonBody:
+            #InvalidFallbackBehavior: EVALUATE_AS_STRING
+            #MatchPattern:
+            #  IncludedPaths:
+            #  - "/path/0/name"
+            #  - "/path/1/name"
+            #MatchScope: ALL
+  #      - Method: {}
+  #      - QueryString: {}
+  #      - SingleHeader:
+  #          Name: password
+  #      - UriPath: {} 
+        ResourceArn: arn:aws:wafv2:ap-southeast-1:479759072139:regional/webacl/wafacl/4e2de8f5-d3a6-40b2-8a98-0004abf35aad

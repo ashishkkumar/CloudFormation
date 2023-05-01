@@ -1,0 +1,136 @@
+Parameters:
+  functionname:
+    Type: String
+    Description: Enter the name of Lambda Function
+
+  lambdarole:
+    Type: String
+    Description: Enter the arn of role for lambda execution, this role should have CreateNetworkInterface policy.
+
+  securitygroup:
+    Type: CommaDelimitedList
+    Description: Enter list of security group id seperated by commas.
+
+  subnetid:
+    Type: CommaDelimitedList
+    Description: Enter list of subnet id seperated by commas.
+
+  users:
+    Type: CommaDelimitedList
+    Description: Enter the list of user allowed to publish, seperated by comma.
+
+Resources:
+  version:
+    DependsOn: function
+    Type: AWS::Lambda::Version
+    Properties:
+      FunctionName: !GetAtt function.Arn
+      Description: v1
+
+  alias:
+    Type: AWS::Lambda::Alias
+    DependsOn: function
+    Properties: 
+      Description: "description"
+      FunctionName: !GetAtt function.Arn
+      FunctionVersion: !GetAtt version.Version
+      Name: Aliasdemo2
+#      ProvisionedConcurrencyConfig: 
+#          ProvisionedConcurrentExecutions: 2 #The amount of provisioned concurrency to allocate for the alias.
+#      RoutingConfig:     #set up if we want to route traffic between other version
+#          AdditionalVersionWeights: 
+#              FunctionVersion: !GetAtt SecondVersion_name    #routing traffic between two version
+#              FunctionWeight: 0.5   #percentage of traffic we want to route
+ 
+
+#Below code is to allow other user to publish
+  CodeSigningConfig:
+    Type: AWS::Lambda::CodeSigningConfig
+    Properties: 
+      AllowedPublishers: 
+        SigningProfileVersionArns: !Ref users    #arn of other users
+      CodeSigningPolicies: 
+        UntrustedArtifactOnDeployment: Enforce   #To blocks the deployment request if signature validation checks fail, else 'Warn' even you want to deploy after validation check failed
+      Description: String
+
+#resource configures options for asynchronous invocation on a version or an alias.
+  EventInvokeConfig:
+    Type: AWS::Lambda::EventInvokeConfig
+    DependsOn: version 
+    Properties: 
+#      DestinationConfig: 
+#        OnFailure: 
+#          Destination: arn:aws:lambda:ap-southeast-1:479759072139:function:aws-controltower-NotificationForwarder  #arn of destination resources
+#          OnSuccess: 
+#            Destination:    #arn of destination resources
+      FunctionName: !Ref function
+      MaximumEventAgeInSeconds: 80   #60-21600
+      MaximumRetryAttempts: 1    #0-2
+      Qualifier: !GetAtt version.Version   #identifier of a versiob or alias, 
+
+  function:
+    Type: AWS::Lambda::Function
+    Properties: 
+#      Architectures: 
+#        - x86_64
+      Code:   #use either imageurl, s3, zipfile 
+#        ImageUri:       #
+#        S3Bucket: String
+#        S3Key: String
+#        S3ObjectVersion: String
+        ZipFile: |
+          var aws = require('aws-sdk')
+          var response = require('cfn-response')
+          exports.handler = function(event, context) {
+              console.log("REQUEST RECEIVED:\n" + JSON.stringify(event))
+              // For Delete requests, immediately send a SUCCESS response.
+              if (event.RequestType == "Delete") {
+                  response.send(event, context, "SUCCESS")
+                  return
+              }
+              var responseStatus = "FAILED"
+              var responseData = {}
+              var functionName = event.ResourceProperties.FunctionName
+              var lambda = new aws.Lambda()
+              lambda.invoke({ FunctionName: functionName }, function(err, invokeResult) {
+                  if (err) {
+                      responseData = {Error: "Invoke call failed"}
+                      console.log(responseData.Error + ":\n", err)
+                  }
+                  else responseStatus = "SUCCESS"
+                  response.send(event, context, responseStatus, responseData)
+              })
+          }
+#      CodeSigningConfigArn: !GetAtt CodeSigningConfig.CodeSigningConfigArn
+      Description: String
+#      Environment:  #defininf variable that will be use by our code
+#        Variables:
+#          var_name: var_value
+#      EphemeralStorage: #tmp directory size
+#        Size: 1000    #512-10240mb
+#      FileSystemConfigs: 
+#          Arn: String
+#          LocalMountPath: String
+      FunctionName: !Ref functionname
+      Handler: function
+#      KmsKeyArn: String
+      MemorySize: 512
+      PackageType: Zip   #either Image or Zip
+      ReservedConcurrentExecutions: 2
+      Role: !Ref lambdarole
+      Runtime: nodejs12.x
+      SnapStart: 
+        ApplyOn: None
+      Timeout: 10   #3-900 second
+      TracingConfig: 
+        Mode: Active  #Active | PassThrough
+      VpcConfig: 
+        SecurityGroupIds: !Ref securitygroup
+        SubnetIds: !Ref subnetid
+
+  LambdaUrl:
+    Type: AWS::Lambda::Url
+    DependsOn: function
+    Properties: 
+      AuthType: NONE
+      TargetFunctionArn: !GetAtt function.Arn

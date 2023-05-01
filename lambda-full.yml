@@ -1,0 +1,250 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  FunctionName:
+    Type: String
+    Default: Default Name
+    Description: Enter a name that describes the purpose of your function.
+  Runtime:
+    Type: String
+    Description: Choose the language to use to write your function. Note that the console code editor supports only Node.js, Python, and Ruby.
+    AllowedValues:
+    - dotnet6
+    - dotnetcore3.1
+    - go1.x
+    - java11
+    - nodejs18.x
+    - python3.9
+    - ruby2.7
+    - java8
+    - java8.al2
+    - nodejs12.x
+    - nodejs14.x
+    - nodejs16.x
+    - python3.7
+    - python3.8
+    - provided
+    - provided.al2
+
+  FunctionSource:
+    Description: Type of Function.
+    Type: String
+    AllowedValues:
+      - "Author from scratch"
+      - "Container Image"
+
+  ImageUri:
+    Description: Requires a valid Amazon ECR image URI.
+    Type: String
+    Default: ImageUrl
+ 
+  architecture:
+    Description: Choose the instruction set architecture you want for your function code.
+    Type: String
+    AllowedValues:
+    - x86_64
+    - arm64
+
+  PackageType:
+    Type: String
+    Description: The type of deployment package. Set to Image for container image and set Zip for .zip file archive.
+    AllowedValues:
+      - Zip
+      - Image
+  ROLE:
+    Description: Enter the arn of role for lambda execution, this role should have permission for "AWSLambdaVPCAccessExecutionRole" or  upload logs to Amazon CloudWatch Logs.
+    Type: String
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: The VPC ID that includes the security groups in the ExistingSecurityGroups
+      parameter.
+  Subnets:
+    Description: select the subnet from same vpc-id.
+    Type: List<AWS::EC2::Subnet::Id>
+
+  SecurityGroups:
+    Description: select security group.
+    Type: List<AWS::EC2::SecurityGroup::Id>
+
+  FunctionDescription:
+    Type: String
+    Description: Enter description for Lambda-Function.
+  
+  EphericalStorage:
+    Type: Number
+    Default: 512
+    MaxValue: 10240
+    MinValue: 512
+    Description: Size of function's "/tmp" directory in MB (512 - 10240 MB)(Optional).
+
+  MemorySize:
+    Type: Number
+    Default: 128
+    MaxValue: 10240
+    MinValue: 128
+    Description: Enter the amount of memory available for function at runtime. (128-10240 MB) (Optional).
+
+  Snapstart:
+    Type: String
+    Description: The function's AWS Lambda SnapStart setting.
+    Default: None
+    AllowedValues:
+    - None
+    - PublishedVersions
+  
+  timeout:
+    Type: Number
+    Default: 30
+    MaxValue: 900
+    MinValue: 3
+    Description: Enter the timeout in sec (3-900 sec).
+
+#  EnableCodeSigning:
+#    Type: String
+#    Description: Use code signing configurations to ensure that the code has been signed by an approved source and has not been altered since signing.
+#    AllowedValues:
+#    - True
+#    - False
+  
+  EnableFunctionURL:
+    Type: String
+    Description: Use function URLs to assign HTTP(S) endpoints to your Lambda function.
+    AllowedValues:
+    - True
+    - False
+#  Signinguser:
+#    Type: CommaDelimitedList
+#    Description: Use code signing configurations to ensure that the code has been signed by an approved source and has not been altered since signing. Seperate user list with commas.
+#  EnableVPC:
+#    Type: String
+#    Description: Connect your function to a VPC to access private resources during invocation.
+#    AllowedValues:
+#    - True
+#    - False
+  
+Rules:
+  SubnetsInVPC:
+    Assertions:
+      - Assert:
+          'Fn::EachMemberEquals':
+            - 'Fn::ValueOf':
+                - Subnets
+                - VpcId
+            - Ref: VpcId
+        AssertDescription: All subnets must in the VPC.
+  SecurityGroupInVPC:
+    Assertions:
+      - Assert:
+          'Fn::EachMemberEquals':
+            - 'Fn::ValueOf':
+                - SecurityGroups
+                - VpcId
+            - Ref: VpcId
+        AssertDescription: All subnets must in the VPC.
+Metadata: 
+  AWS::CloudFormation::Interface:
+      ParameterGroups:
+        - Label:
+            default: "Create Function"
+          Parameters:
+            - FunctionSource
+        - Label:
+            default: "Basic Information"
+          Parameters:
+            - FunctionName
+            - FunctionDescription
+        - Label:
+            default: Container image URL. Only enter it if you select Container Image in FunctionSource.
+          Parameters:
+            - ImageUri
+        - Label:
+            default: Runtime
+          Parameters:
+            - Runtime
+        - Label:
+            default: Architecture
+          Parameters:
+            - architecture
+            - PackageType
+        - Label:
+            default: Execution Role
+          Parameters:
+            - ROLE
+        - Label:
+            default: Enable VPC
+          Parameters:
+            - VpcId
+            - Subnets
+            - SecurityGroups
+        - Label:
+            default: Other features
+          Parameters:
+            - EphericalStorage
+            - MemorySize
+            - Snapstart
+            - timeout
+      ParameterLabels:
+        ParameterLogicalID: 
+          default: hello
+Conditions:
+  cond: !Equals 
+    - !Ref FunctionSource
+    - "Container Image"
+  fnsurl: !Equals 
+    - !Ref EnableFunctionURL
+    - "true"
+
+Resources:
+  function:
+    Type: AWS::Lambda::Function
+#    DependsOn:
+#      - CodeSigningConfig
+    Properties: 
+      Architectures: 
+        - !Ref architecture
+      Code:   #use either imageurl, s3, zipfile 
+        Fn::If:
+          - cond
+          - Image: !Ref ImageUri
+          - ZipFile: | 
+              print("hello")
+#        S3Bucket: String
+#        S3Key: String
+#        S3ObjectVersion: String
+#      CodeSigningConfigArn: !GetAtt CodeSigningConfig.CodeSigningConfigArn
+#      DeadLetterConfig: 
+##       TargetArn: !Ref DeadLetter             arn of SNS or SQS topic
+      Description: !Ref FunctionDescription
+#      Environment:  #defining  variable that will be use by our code
+#        Variables:
+#          var_name: var_value
+      EphemeralStorage: #tmp directory size
+        Size: !Ref EphericalStorage    #512-10240mb
+#      FileSystemConfigs:    # Connection settings for an Amazon EFS file system
+#          Arn: String
+#          LocalMountPath: String
+      FunctionName: !Ref FunctionName
+      Handler: index.handler    #nThe name of the method within your code that Lambda calls to run your function. Handler is required if the deployment package is a .zip file archive
+#      KmsKeyArn: String
+      MemorySize: !Ref MemorySize
+      PackageType: !Ref PackageType   #The type of deployment package. Set to Image for container image and set Zip for .zip file archive.
+#      ReservedConcurrentExecutions: 2
+      Role: !Ref ROLE
+      Runtime: !Ref Runtime
+      SnapStart: 
+        ApplyOn: !Ref Snapstart
+      Timeout: !Ref timeout   #3-900 second
+#      TracingConfig: 
+#        Mode: Active  #Active | PassThrough
+      VpcConfig: 
+        SecurityGroupIds: !Ref SecurityGroups
+        SubnetIds: !Ref Subnets
+
+  LambdaUrl:
+    Type: AWS::Lambda::Url
+    Condition: fnsurl
+    DependsOn: function
+    Properties: 
+      AuthType: NONE
+      TargetFunctionArn: !GetAtt function.Arn
+      

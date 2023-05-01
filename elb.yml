@@ -1,0 +1,108 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create Ec2 instance"
+Parameters:
+  name:
+    Type: String
+    Description: Name of Load Balancer
+  image:
+    Type: String
+    Description: Enter the image id of instance 1
+  image2:
+    Type: String
+    Description: Enter the image id of instance 2
+  vpc:
+    Type: String
+    Description: Enter the VPC id for Security Group.
+  avail:
+    Type: String
+    Description: Enter the Availability Zones for load balancer.
+Resources:
+  ELB:
+    Type: AWS::ElasticLoadBalancing::LoadBalancer
+    Properties: 
+#      AccessLoggingPolicy: 
+#        EmitInterval: 5
+#        Enabled: true
+#        S3BucketName: "ansh32"
+#        S3BucketPrefix: loadbalancer/demo
+
+      AppCookieStickinessPolicy: 
+        - CookieName: String
+          PolicyName: String
+
+      AvailabilityZones: 
+        - !Ref avail
+      ConnectionDrainingPolicy: 
+          Enabled: true
+          Timeout: 300 #The maximum time, in seconds, to keep the existing connections open before deregistering the instances.
+
+      ConnectionSettings: 
+          IdleTimeout: 300 #The time, in seconds, that the connection is allowed to be idle (no data has been sent over the connection) before it is closed by the load balancer.
+
+      CrossZone: true #If enabled, the load balancer routes the request traffic evenly across all instances regardless of the Availability Zones.
+      HealthCheck:  #The health check settings to use when evaluating the health of your EC2 instances.
+          HealthyThreshold: "4"  # range (2, 10) The number of consecutive health checks successes required before moving the instance to the Healthy state.
+          Interval: "40"  #range(5 300)  The approximate interval, in seconds, between health checks of an individual instance.
+          Target: "TCP:5000" #protocol:port number and  HTTP:port;/;PathToPing || TCP, HTTP, HTTPS, SSL
+          Timeout: "10"  # range( 2, 60)
+          UnhealthyThreshold: "5" # range(2, 10)
+
+      Instances: #The IDs of the instances for the load balancer.
+        - !Ref Instance2 
+        - !Ref Instance
+      LBCookieStickinessPolicy: 
+        - CookieExpirationPeriod: "300"  #time period in sec
+          PolicyName: "ansh-elb-policy"  #This name must be unique within the set of policies for this load balancer.
+
+      Listeners: 
+        - InstancePort: "80" #required | range(1, 65535)
+          InstanceProtocol: "HTTP"  #HTTP, HTTPS, TCP, or SSL.
+          LoadBalancerPort: "3246"  #required | The port on which the load balancer is listening 25, 80, 443, 465, 587, 1024-65535.
+#          PolicyNames: 
+#            - "ansh-elb-policy-2"
+          Protocol: "HTTP"  #required | The load balancer transport protocol to use for routing: HTTP, HTTPS, TCP, or SSL.
+          #SSLCertificateId: "String" # The Amazon Resource Name (ARN) of the server certificate.
+
+      LoadBalancerName: !Ref name
+#      Policies: 
+#        - Attributes:   #required
+#            - Name: Reference-Security-Policy
+#             Value: ELBSecurityPolicy-TLS-1-2-2017-01
+#         InstancePorts: 
+#           - "80"
+#          LoadBalancerPorts: 
+#            - "3246"
+#          PolicyName: "ansh-elb-policy-2"  # required
+#          PolicyType: "SSLNegotiationPolicyType"  # required
+
+      Scheme: "internet-facing"    #internet-facing or internal
+      SecurityGroups: 
+        - !Ref SecurityGroup
+#      Subnets: 
+#        - "subnet-06cb9e2da8cadb9cd"
+      Tags: 
+        - Key: "elb"
+          Value: "demo"
+
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: allow access via port 22
+      VpcId: !Ref vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: '0.0.0.0/0'
+
+  Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: "t2.micro"
+      ImageId: !Ref image
+
+  Instance2:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: "t2.micro"
+      ImageId: !Ref image2

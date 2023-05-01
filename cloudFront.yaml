@@ -1,0 +1,139 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Resources:
+  Bucket:
+        Type: 'AWS::S3::Bucket'
+        Properties:
+            AccessControl: Private
+            BucketName: axioghueujdhe
+            Tags:
+                - Key: description
+                  Value: "private files"
+
+  CloudFrontOriginIdentity:
+    Type: 'AWS::CloudFront::CloudFrontOriginAccessIdentity'
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: 'origin identity'
+
+  BucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: axioghueujdhe
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontOriginIdentity}'
+            Action: 's3:GetObject'
+            Resource: arn:aws:s3:::axioghueujdhe/*
+
+  publicDistribution:
+    Type: 'AWS::CloudFront::Distribution'
+    Properties:
+      DistributionConfig:
+        Origins:
+          - DomainName: axioghueujdhe.s3.us-east-1.amazonaws.com
+            Id: S3-axioghueujdhe
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub 'origin-access-identity/cloudfront/${CloudFrontOriginIdentity}'
+        Enabled: 'true'
+        Comment: Some comment
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+          TargetOriginId: S3-axioghueujdhe
+          ForwardedValues:
+            QueryString: 'false'
+            Cookies:
+              Forward: none
+          ViewerProtocolPolicy: redirect-to-https
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: 'true'
+        Restrictions:
+          GeoRestriction:
+            Locations: ["JP"]
+            RestrictionType: blacklist
+        WebACLId: !GetAtt wafACL.Arn
+
+  wafACL:
+    Type: AWS::WAFv2::WebACL
+    Properties: 
+      CaptchaConfig: 
+        ImmunityTimeProperty: 
+          ImmunityTime: 300  #captcha valid token time in second 
+      CustomResponseBodies: 
+        CustomResponseBodyKey1:
+          ContentType: TEXT_PLAIN
+          Content: this is a plain text
+        CustomResponseBodyKey2:
+          ContentType: APPLICATION_JSON
+          Content: '{"jsonfieldname": "jsonfieldvalue"}'
+        CustomResponseBodyKey3:
+          ContentType: TEXT_HTML
+          Content: <html>HTML text content</html
+      DefaultAction: 
+        Allow:
+          CustomRequestHandling:
+            InsertHeaders:
+              - Name: AllowActionHeader1Name
+                Value: AllowActionHeader1Value
+              - Name: AllowActionHeader2Name
+                Value: AllowActionHeader2Value 
+      Description: WEB ACL demo
+      Name: webacl
+      Rules: 
+        - Name: rule
+          Action:
+            Allow: {}
+          CaptchaConfig:
+            ImmunityTimeProperty: 
+              ImmunityTime: 300  #defafult value is 300
+          Priority: 1
+          # required
+          Statement:
+            IPSetReferenceStatement:
+              Arn: !GetAtt waipset.Arn
+              IPSetForwardedIPConfig: 
+                FallbackBehavior: "MATCH"
+                HeaderName: "X-Forwarded-For"
+                Position: "ANY"
+
+            #for more option visit: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-statement.html
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: "wafACL-visibility-config"
+            SampledRequestsEnabled: true
+      Scope: "CLOUDFRONT"
+      Tags: 
+        - Key: name
+          Value: demo
+      VisibilityConfig: 
+        CloudWatchMetricsEnabled: true
+        MetricName: "wafACL-visibility"
+        SampledRequestsEnabled: true
+  
+  regex:
+    Type: AWS::WAFv2::RegexPatternSet
+    Properties:
+      Name: RegexPattern
+      Scope: "CLOUDFRONT"
+      Description: This is an example RegexPatternSet
+      RegularExpressionList:
+        - ^foobar$
+        - ^example$ 
+
+  waipset:
+    Type: AWS::WAFv2::IPSet
+    Properties: 
+      Addresses: 
+        - 122.177.110.132/32
+      #ipaddress must be in CIDR ranges
+      Description: Monitor request originated form ipset.
+      IPAddressVersion: "IPV4"
+      Name: "waf-ipset-cloudfront"
+      Scope: "CLOUDFRONT"
+      Tags: 
+        - Key: type
+          Value: demo

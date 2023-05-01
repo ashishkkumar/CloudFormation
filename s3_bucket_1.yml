@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates an S3 bucket 
+Parameters:
+  Bucketname:
+    Type: String
+    Description: Enter the name of bucket.
+
+  Accesscontrol:
+    Type: String
+    Description: Enter the access Control
+    AllowedValues:
+    - Private
+    - PublicRead
+    - PublicReadWrite
+    - AuthenticatedRead
+    - LogDeliveryWrite
+    - BucketOwnerRead
+    - BucketOwnerFullControl
+    - AwsExecRead
+
+  EncryptionKMS:
+    Type: String
+    Description: Enter the kms key arn
+
+
+
+Resources:
+  S3Bucket:
+    Type: 'AWS::S3::Bucket'
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Ref Bucketname
+      AccessControl: !Ref Accesscontrol
+#uncomment below line for enabling encryption encryption
+      BucketEncryption: 
+        ServerSideEncryptionConfiguration: 
+        - ServerSideEncryptionByDefault:
+            SSEAlgorithm: aws:kms
+            KMSMasterKeyID: !Ref EncryptionKMS
+      LifecycleConfiguration:
+        Rules:
+          - Id: anshrule
+            Prefix: ansh
+            Status: Enabled
+            ExpirationInDays: 365
+            Transitions:
+              - TransitionInDays: 1
+                StorageClass: GLACIER
+#uncomment below line to save logs to new bucket
+      LoggingConfiguration:
+        DestinationBucketName: !Ref LogDeliveryBucket
+        LogFilePrefix: ansh-logs-
+      VersioningConfiguration:
+        Status: Enabled
+#uncomment below line for enabling website and also enable S3.GetObject policy
+      WebsiteConfiguration:
+        IndexDocument: ansh.html
+        ErrorDocument: ansh.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+  
+  LogDeliveryBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      AccessControl: LogDeliveryWrite
+
+Outputs:
+  Bucket:
+    Value: !Ref S3Bucket
+    Description: Name of Bucket
+  WebsiteURL:
+    Value: !GetAtt 
+      - S3Bucket
+      - WebsiteURL
+    Description: URL for website hosted on S3
+  S3BucketSecureURL:
+    Value: !Join 
+      - ''
+      - - 'https://'
+        - !GetAtt 
+          - S3Bucket
+          - DomainName
+    Description: Name of S3 bucket to hold website content

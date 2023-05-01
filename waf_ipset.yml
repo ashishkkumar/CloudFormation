@@ -1,0 +1,37 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates an waf bucket 
+Parameters:
+  Name:
+    Description: Enter the name of IP set. Exclude ^[\w\-]+$.
+    Type: String
+    MinLength: 1
+    MaxLength: 128
+    AllowedPattern: ^[\w\-]+$
+  ip:
+    Description: The version of the IP addresses,
+    Type: String
+    AllowedValues:
+      - IPV4
+      - IPV6
+    Default: IPV4
+  scope:
+    Description: Scope of WAF
+    Type: String
+    AllowedValues:
+      - REGIONAL
+      - CLOUDFRONT
+    Default: REGIONAL
+Resources:
+  waf:
+    Type: AWS::WAFv2::IPSet
+    Properties: 
+      Addresses: 
+        - 122.177.110.132/32
+      #ipaddress must be in CIDR ranges
+      Description: Monitor request originated form ipset.
+      IPAddressVersion: !Ref ip
+      Name: !Ref Name
+      Scope: !Ref scope
+      Tags: 
+        - Key: type
+          Value: demo

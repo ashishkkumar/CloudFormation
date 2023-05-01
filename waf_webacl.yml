@@ -1,0 +1,135 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates an S3 bucket 
+Parameters:
+  Name:
+    Description: Enter the name of IP set. Exclude ^[\w\-]+$.
+    Type: String
+    MinLength: 1
+    MaxLength: 128
+    AllowedPattern: ^[\w\-]+$
+
+  ip:
+    Description: The version of the IP addresses,
+    Type: String
+    AllowedValues:
+      - IPV4
+      - IPV6
+    Default: IPV4
+
+  scope:
+    Description: Scope of WAF
+    Type: String
+    AllowedValues:
+      - REGIONAL
+      - CLOUDFRONT
+    Default: REGIONAL
+
+  Metricnamerule:
+    Type: String
+    Description: metricname for rule label logs
+    MinLength: 1
+    MaxLength: 255
+    AllowedPattern: ^[\w#:\.\-/]+
+  
+  MetricnameACL:
+    Type: String
+    Description: Metric name for ACL logs
+    MinLength: 1
+    MaxLength: 255
+    AllowedPattern: ^[\w#:\.\-/]+
+  
+  webScope:
+    Description: Scope for web ACL
+    Type: String
+    AllowedValues:
+      - CLOUDFRONT
+      - REGIONAL
+    Default: REGIONAL
+    
+Resources:
+  wafACL:
+    Type: AWS::WAFv2::WebACL
+    Properties: 
+      CaptchaConfig: 
+        ImmunityTimeProperty: 
+          ImmunityTime: 300  #captcha valid token time in second 
+      CustomResponseBodies: 
+        CustomResponseBodyKey1:
+          ContentType: TEXT_PLAIN
+          Content: this is a plain text
+        CustomResponseBodyKey2:
+          ContentType: APPLICATION_JSON
+          Content: '{"jsonfieldname": "jsonfieldvalue"}'
+        CustomResponseBodyKey3:
+          ContentType: TEXT_HTML
+          Content: <html>HTML text content</html
+      DefaultAction: 
+        Allow:
+          CustomRequestHandling:
+            InsertHeaders:
+              - Name: AllowActionHeader1Name
+                Value: AllowActionHeader1Value
+              - Name: AllowActionHeader2Name
+                Value: AllowActionHeader2Value 
+      Description: WEB ACL demo
+      Name: webacl
+      Rules: 
+        - Name: rule
+          Action:
+            Allow: {}
+          CaptchaConfig:
+            ImmunityTimeProperty: 
+              ImmunityTime: 300  #defafult value is 300
+          Priority: 1
+          # required
+          Statement:
+            IPSetReferenceStatement:
+              Arn: !GetAtt waipset.Arn
+              IPSetForwardedIPConfig: 
+                FallbackBehavior: "MATCH"
+                HeaderName: "X-Forwarded-For"
+                Position: "ANY"
+
+            #for more option visit: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-statement.html
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: !Ref Metricnamerule
+            SampledRequestsEnabled: true
+      Scope: !Ref webScope
+      Tags: 
+        - Key: name
+          Value: demo
+      VisibilityConfig: 
+        CloudWatchMetricsEnabled: true
+        MetricName: !Ref MetricnameACL
+        SampledRequestsEnabled: true
+  
+  regex:
+    Type: AWS::WAFv2::RegexPatternSet
+    Properties:
+      Name: RegexPattern
+      Scope: !Ref scope
+      Description: This is an example RegexPatternSet
+      RegularExpressionList:
+        - ^foobar$
+        - ^example$ 
+
+  waipset:
+    Type: AWS::WAFv2::IPSet
+    Properties: 
+      Addresses: 
+        - 122.177.110.132/32
+      #ipaddress must be in CIDR ranges
+      Description: Monitor request originated form ipset.
+      IPAddressVersion: !Ref ip
+      Name: !Ref Name
+      Scope: !Ref scope
+      Tags: 
+        - Key: type
+          Value: demo
+
+#  wafAclAssociation:
+#    Type: AWS::WAFv2::WebACLAssociation
+#    Properties: 
+#      ResourceArn: #resouces arn to which we want to associate this WAFACL
+#      WebACLArn: !Ref wafACL

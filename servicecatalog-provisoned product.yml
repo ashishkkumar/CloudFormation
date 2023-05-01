@@ -1,0 +1,15 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  function:
+    Type: AWS::ServiceCatalog::CloudFormationProvisionedProduct
+    Properties: 
+#      ProductName: demo
+      ProductId: prod-rcitlqjlboegw
+      ProvisionedProductName: striker
+      ProvisioningArtifactId: striker0
+      ProvisioningParameters: 
+        - key: name
+          value: ansh
+        - key: id
+          value: ansh235678432
+

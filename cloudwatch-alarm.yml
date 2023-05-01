@@ -1,0 +1,206 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+#  AlarmActions:
+#    Description:  
+#    Type: CommaDelimitedList
+#    Default:
+  AlarmDescription:
+    Type: String
+    MaxLength: 1024
+    MinLength: 0
+  AlarmName:
+    Type: String
+    Description: Enter the name of alarm.
+    MaxLength: 255
+    MinLength: 1
+  ComparisonOperator:
+    Description: The arithmetic operation to use when comparing the specified statistic and threshold.
+    Type: String
+    AllowedValues:
+    - GreaterThanOrEqualToThreshold
+    - GreaterThanThreshold
+    - LessThanOrEqualToThreshold
+    - LessThanThreshold
+  DatapointsToAlarm:
+    Type: Number
+    Description: The number of datapoints that must be breaching to trigger the alarm. This is used only if you are setting an "M out of N" alarm. In that case, this value is the M.
+    MinValue: 1
+  EvaluateLowSampleCountPercentile:
+    Type: String
+    Description: If ignore, the alarm state does not change during periods with too few data points to be statistically significant. If evaluate or this parameter is not used, the alarm is always evaluated and possibly changes state no matter how many data points are available. It can not be applied with statistic Average. This option is enabled only for percentile statistics.
+    AllowedValues:
+    - ignore
+    - evaluate
+  EvaluationPeriods:
+    Type: Number
+    Description: The number of periods over which data is compared to the specified threshold. If you are setting an "M out of N" alarm, this value is the N, and DatapointsToAlarm is the M.
+    MinValue: 1
+
+  AlarmBase:
+    Type: String
+    Description: Alarm is base on Metric or math expression
+    AllowedValues:
+    - metric
+    - mathexpression
+  StatisticType:
+    Type: String
+    Default: None
+    Description: For an alarm based on a metric, you must specify either Statistic or ExtendedStatistic but not both, For math expression choose None.
+    AllowedValues:
+    - statistic
+    - extendedstatistic
+    - None
+  ExtendedStatistic:
+    Type: String
+    Description: The percentile statistic for the metric associated with the alarm. Specify a value between p0.0 and p100. 
+    Default: p0.0
+  
+  Statistic:
+    Type: String
+    Description: The statistic for the metric associated with the alarm, other than percentile. For percentile statistics, use ExtendedStatistic.
+    Default: None
+    AllowedValues:
+    - None
+    - Average
+    - Maximum
+    - Minimum
+    - SampleCount
+    - Sum
+  InsufficientDataActions:
+    Type: CommaDelimitedList
+    Description: The actions to execute when this alarm transitions to the INSUFFICIENT_DATA state from any other state. Each action is specified as an Amazon Resource Name (ARN).
+    Default: no
+  MetricName:
+    Type: String
+    Description: The name of the metric associated with the alarm. This is required for an alarm based on a metric. The name of the metric associated with the alarm. This is required for an alarm based on a metric.
+    Default: none
+    MaxLength: 255
+    MinLength: 1
+  Period:
+    Type: Number
+    MinValue: 10
+    Description: The period, in seconds, over which the statistic is applied. This is required for an alarm based on a metric. Valid values are 10, 30, 60, and any multiple of 60.For an alarm based on a math expression, you can't specify Period, and instead you use the Metrics parameter.
+    Default: 10
+  Unit:
+    Type: String
+    Default: None
+    Description: The unit of the metric associated with the alarm. Specify this only if you are creating an alarm based on a single metric. Do not specify this if you are specifying a Metrics array.
+    AllowedValues:
+    - Bits
+    - Bits/Second
+    - Bytes
+    - Bytes/Second
+    - Count
+    - Count/Second
+    - Gigabits
+    - Gigabits/Second
+    - Gigabytes
+    - Gigabytes/Second
+    - Kilobits
+    - Kilobits/Second
+    - Kilobytes
+    - Kilobytes/Second
+    - Megabits
+    - Megabits/Second
+    - Megabytes
+    - Megabytes/Second
+    - Microseconds
+    - Milliseconds
+    - None
+    - Percent
+    - Seconds
+    - Terabits
+    - Terabits/Second
+    - Terabytes
+    - Terabytes/Second
+  Threshold:
+    Type: Number
+    Description: The value to compare with the specified statistic.
+    Default: 0
+  TreatMissingData:
+    Type: String
+    Default: missing
+    Description: Sets how this alarm is to handle missing data points. 
+    AllowedValues:
+    - breaching
+    - notBreaching
+    - ignore
+    - missing
+  Id:
+    Type: String
+    Default: ID
+    Description: A short name used to tie this object to the results in the response. This name must be unique within a single call to GetMetricData.
+  AccountId:
+    Type: String 
+    Default: AccountID
+    Description: The ID of the account where the metrics are located, if this is a cross-account alarm.
+  Expression:
+    Type: String
+    Default: expression
+    MinLength: 1
+    MaxLength: 2048
+    Description: The math expression to be performed on the returned data, if this object is performing a math expression. This expression can use the Id of the other metrics to refer to those metrics, and can also use the Id of other expressions to use the result of those expressions. For more info https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/using-metric-math.html#metric-math-syntax
+  Stat:
+    Type: String
+    Default: stat
+    Description: The statistic to return. It can include any CloudWatch statistic or extended statistic. For a list of valid values, see the table in https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_concepts.html#Statistic
+  Namespace:
+    Type: String 
+    Default: "Allowed Pattern: [^:].*"
+    MaxLength: 255
+    MinLength: 1
+    AllowedPattern: "[^:].*"
+    Description: The namespace of the metric associated with the alarm. This is required for an alarm based on a metric. For an alarm based on a math expression, you can't specify Namespace and you use Metrics instead.For a list of namespaces for metrics from AWS services, see https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/aws-services-cloudwatch-metrics.html
+Conditions:
+  cond1: !Equals 
+    - !Ref AlarmBase
+    - "metric"
+  cond2: !Equals
+    - !Ref StatisticType
+    - "statistic"
+  cond3: !Equals
+    - !Ref StatisticType
+    - "extendedstatistic"
+Resources:
+  Alarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+#      AlarmActions: 
+#        - String
+      AlarmDescription: !Ref AlarmDescription
+      AlarmName: !Ref AlarmName
+      ComparisonOperator: !Ref ComparisonOperator
+      DatapointsToAlarm: !Ref DatapointsToAlarm
+#      EvaluateLowSampleCountPercentile: !Ref EvaluateLowSampleCountPercentile
+      ExtendedStatistic: !If [cond3, !Ref ExtendedStatistic, !Ref 'AWS::NoValue']
+      EvaluationPeriods: !Ref EvaluationPeriods
+      MetricName: !If [cond1, !Ref MetricName, !Ref 'AWS::NoValue']
+#          Dimensions:
+      Namespace: !If [cond1, !Ref Namespace, !Ref 'AWS::NoValue']
+      Period: !If [cond1, !Ref Period, !Ref 'AWS::NoValue']
+      Unit: !If [cond1, !Ref Unit, !Ref 'AWS::NoValue']
+      Metrics: 
+        Fn::If:
+          - cond1
+          - !Ref 'AWS::NoValue'
+          - AccountId: !Ref AccountId
+            Expression: !Ref Expression
+            Id: !Ref Id
+#            Label: String
+            MetricStat: 
+                Metric: 
+                  MetricName: !Ref MetricName
+                  Namespace: !Ref Namespace
+                Period: !Ref Period
+                Stat: !Ref Stat
+                Unit: !Ref Unit
+            Period: !Ref Period
+#            ReturnData: Boolean
+#      - MetricDataQuery
+      Statistic: !If [cond2, !Ref Statistic, !Ref 'AWS::NoValue']
+#      OKActions: 
+#        - !     
+      Threshold: !Ref Threshold
+#      ThresholdMetricId: String   #In an alarm based on an anomaly detection model, this is the ID of the ANOMALY_DETECTION_BAND function used as the threshold for the alarm.
+      TreatMissingData: !Ref TreatMissingData
+

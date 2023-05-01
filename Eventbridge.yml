@@ -1,0 +1,51 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "EventBridge For S3Bucket as Event Source and SNS topic as event Target"
+
+Resources:
+  MyEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: my-event-bus
+
+  MyEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: my-event-rule
+      EventPattern:
+        source:
+          - aws.s3
+        detail-type:
+          - AWS API Call via CloudTrail
+        detail:
+          eventSource:
+            - s3.amazonaws.com
+            - s3-external-1.amazonaws.com
+            - s3-fips.amazonaws.com
+          eventName:
+            - CreateBucket
+            - DeleteBucket
+      EventBusName: !Ref MyEventBus
+      Targets:
+        - Id: my-sns-topic
+          Arn: !Ref MySNSTopic
+
+  MySNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: my-sns-topic
+      TopicName: my-sns-topic
+
+  MySNSPermission:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      PolicyDocument:
+        Id: MySNSPolicy
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref MySNSTopic
+      Topics:
+        - !Ref MySNSTopic
